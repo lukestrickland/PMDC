@@ -1,0 +1,109 @@
+---
+title: "Simple PM example, evaluating fit"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{evaluate_fit}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>"
+)
+
+
+```
+
+
+Data for this lesson can be downloaded from
+
+https://www.dropbox.com/sh/g21k7hmj69h30y2/AACXkTIJBZVYkrA3adiE6gh1a?dl=0
+
+Loads in data from sampling vignette. Uses
+predict() method to get posterior predictions
+and summarise_fit function to get summaries of 
+these predictions in terms of response proportions
+and RTs. 
+
+```{r load}
+library(PMDC)
+
+fpath <- system.file("extdata", "fit1.RData", package="PMDC")
+load(fpath)
+
+fpath <- system.file("extdata", "fit_multi_1.RData", package="PMDC")
+load(fpath)
+
+fpath <- system.file("extdata", "fit_multi_hierarchical_1.RData", package="PMDC")
+load(fpath)
+
+theme_simple <- function (base_size = 12, base_family = "") {
+  theme_grey(base_size = base_size, base_family = base_family) %+replace%
+    theme(
+      panel.background = element_rect(fill="white"),
+      panel.grid.minor.y = element_blank(),
+      legend.key = element_rect(fill="white", colour= "white"),
+      strip.background = element_rect(fill="white"))
+}
+
+theme_set(theme_simple())
+
+
+```
+
+For a quick fit workup just call plot() on fit summaries
+
+```{r plot}
+
+test <- predict(fit)
+fit_summaries <- summarise_fit(test, facs="S")
+
+plot(fit_summaries)
+
+```
+
+Can also separately plot fits to response proportions and RTs
+```{r plotRP}
+
+plot_RP(fit_summaries, xaxis="S")
+
+```
+```{r plotRT}
+
+plot_RT(fit_summaries, xaxis="S")
+
+```
+
+Sometimes response accuracy is preferable to response prportion. 
+This can be plotted with plot_RA
+```{r plotRA}
+
+plot_RA(fit_summaries, xaxis="S")
+
+```
+
+The methods also work for lists of fits to multiple participants
+and for hyper fits
+```{r plot_many}
+
+
+fpath <- system.file("extdata", "fit_multi_1.RData", package="PMDC")
+load(fpath)
+
+test <- predict(fit_multi)
+
+fit_summaries <- summarise_fit(test, facs=c("S"))
+
+plot(fit_summaries)
+```
+
+```{r plot_h}
+
+
+test<- predict(fit_multi_hierarchical)
+
+plot(summarise_fit(test, facs=c("S", "cond")))
+
+```

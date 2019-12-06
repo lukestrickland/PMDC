@@ -1,0 +1,208 @@
+---
+title: "Simple PM example, creating model"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{setup_sampling}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>"
+)
+
+
+```
+
+This vignette runs through an example of how to fit the 
+Prospective Memory Decision Control (PMDC) model to a single experimental subject's data. 
+The experimental 
+design is based on Strickland et al. (2018).
+
+In many ways, modelling PM experiments is not too different
+to modelling other experiments with the ggdmc software. 
+In 'control' conditions, this was the only
+task participants performed. Similar to many prospective memory (PM) experiments, 
+the experiment included an ongoing task in which participants
+made decisions about whether strings of letters were words 
+or non-words. These conditions can be modelled
+with two racing LBA accumulators, one for word and one for non-word. 
+However, the experiment included two conditions with additional PM tasks, which
+require some adjustments to model.
+The PM task was to submit an alternative
+response to certain words in the task. In 'focal' PM conditions,
+participants were required to make this alternative response
+to one particular PM target word (e.g., press 'j' if you see the word 'giraffe'). In 'non-focal' conditions,
+they were required to make this response to any word
+within a PM target category (e.g., press 'j' if you see any word that is an animal'). 
+Both of the above PM conditions require three accumulators to model. Thus,
+the model fitting procedure needs to swap between 2 and three accumulator
+architectures. In addition, the model specification required not fully crossing
+two factor levels- stimulus type, and PM condition, as there were no PM stimuli
+in control blocks of trials.
+
+#### Building a model
+
+Note that the non-focal level is labelled H (for hard), rather than NF. This is
+because model.dmc relies on string matching to create the models, and this
+string matching assumes that no factor levels will contain a complete substring
+of other factor levels.
+
+S: Stimulus type - levels = non-word (n), word(w), PM (p)
+R: response levels - Nonword response (N), word response (W), PM response (P)
+
+Although the levels of S and R are the same letters, they are ok, because
+one is upper case and the other lower case.
+
+The PM models often needs a custom "match.map".
+In prospective memory paradigms PM 'false alarms',
+in which participants make a PM response on a non-PM trial, are very rare,
+and thus associated rate parameter estimates are not constrained by much data.
+Thus, it is a good idea to pool those rates into one PM false alarm parameter
+(fa).
+
+When using match.map on a non-factorial design, all
+cells of the maps need to be filled with something- even  cells that never
+occur in the design. In this design, PM trials and PM responses never occur
+under control conditions. That is, the stimulus type factor (word trial
+non-word trial, PM trial) is non-factorial, with 3 levels in focal (F) and
+non-focal (H), but only 2 levels in control (C). Simililarly, the accumulator
+factor (word, non-word, PM) is non-factorial with 2 levels in control but
+3 in focal and non-focal. However, all factorial combinations of
+design levels need to be filled with something. In order to get around this,
+create a dummy parameter for these cells. In this example, the
+dummy parameter is  "FAKERATE". This parameter is assigned to the cells,
+but never estimated from the data.
+
+```{r map}
+library(PMDC)
+
+FR <- list(S = c("n","w","p"), cond=c("C","F", "H"), R=c("N", "W", "P"))
+lev <- c("CnN","CwN", "CnW","CwW",
+         "FnN","FwN","FpN", "FnW","FwW","FpW", "fa","FpP",
+         "HnN","HwN","HpN", "HnW","HwW","HpW", "HpP",
+         "FAKERATE")
+map_mean_v <- ggdmc:::MakeEmptyMap(FR, lev)
+map_mean_v[1:27] <- c(
+  "CnN","CwN","FAKERATE", "FnN","FwN","FpN", "HnN","HwN","HpN",
+  "CnW","CwW","FAKERATE", "FnW","FwW","FpW", "HnW","HwW","HpW",
+  "FAKERATE","FAKERATE","FAKERATE", "fa","fa","FpP", "fa","fa","HpP")
+
+```
+
+
+In this semi-factorial design, the is no PM accumulator under control
+conditions. In order for model.dmc to know this, the user should do two things:
+1: input an 'N' argument corresponding to the number of accumulators for
+each condition. Specify the number in constants.
+2: set the thresholds to 'Inf' for non-existent accumulators.
+In addition, set the dummy parameters "FAKERATE" to a constant.
+
+
+```{r buildmodel}
+model0 <- BuildModel(
+  p.map     = list(A = "1", B = c("cond", "R"), t0 = "1", mean_v = c("MAPMV"),
+                   sd_v = "1", st0 = "1", N = "cond"),
+  match.map = list(M = list(n = "N", w = "W", p = "P"), MAPMV = map_mean_v),
+  factors   = list(S = c("n","w","p"), cond = c("C","F", "H")),
+  constants = c(N.C = 2, N.F = 3, N.H = 3, st0 = 0, B.C.P = Inf,
+                mean_v.FAKERATE = 1, sd_v = 1),
+  responses = c("N", "W", "P"),
+  type      = "norm")
+
+npar <- length(GetPNames(model0))
+
+```
+
+A vector of 'true' values we will simulate from - similar to Strickland et al. (2018)
+
+```{r sim_p_vector}
+sim.p.vector <- c(A = .3, B.C.N = 1.3,  B.F.N = 1.3,  B.H.N = 1.3,
+              B.C.W = 1.3,  B.F.W = 1.4,  B.H.W = 1.5,
+              B.F.P = 1.1,  B.H.P = 1.3,
+
+              t0=.1,
+
+              mean_v.CnN = 2.8,  mean_v.CwN = -0.3, mean_v.CnW=-1,
+              mean_v.CwW = 2.9,  mean_v.FnN = 2.8,  mean_v.FwN=-.3,
+
+              mean_v.FpN = -1.6, mean_v.FnW = -1,   mean_v.FwW = 2.9,
+              mean_v.FpW = .5 ,  mean_v.fa = -2.4,  mean_v.FpP = 2.5,
+
+              mean_v.HnN = 2.8, mean_v.HwN = -.5,   mean_v.HpN = -.6,
+              mean_v.HnW = -.7, mean_v.HwW = 3.0,   mean_v.HpW = 1.6,
+              mean_v.HpP = 2.3)
+
+```
+              
+A naive PM prior(similar to the study):
+uniform distribution for t0,
+truncated normals, truncated normal for A (0, 10),
+truncated normals for Bs (inf), normals for vs.              
+
+
+```{r set_prior}
+prior.p.mean <- c(A = 1, B.C.N = 1,  B.F.N = 1,  B.H.N = 1,
+              B.C.W = 1,  B.F.W = 1,  B.H.W = 1,
+              B.F.P = 1,  B.H.P = 1,
+              
+              t0=.3,
+              
+              mean_v.CnN = 1,  mean_v.CwN = 0, mean_v.CnW=0,
+              mean_v.CwW = 1,  mean_v.FnN = 1,  mean_v.FwN=0,
+              
+              mean_v.FpN = 0, mean_v.FnW = 0,   mean_v.FwW = 1,
+              mean_v.FpW = 0 ,  mean_v.fa = 0,  mean_v.FpP = 1,
+              
+              mean_v.HnN = 1, mean_v.HwN = 0,   mean_v.HpN = 0,
+              mean_v.HnW = 0, mean_v.HwW = 1,   mean_v.HpW = 0,
+              mean_v.HpP = 1)
+
+
+prior.p.scale <-c(A = 1, B.C.N = 1,  B.F.N = 1,  B.H.N = 1,
+              B.C.W = 1,  B.F.W = 1,  B.H.W = 1,
+              B.F.P = 1,  B.H.P = 1,
+
+              t0=.3,
+
+              mean_v.CnN = 2,  mean_v.CwN = 2, mean_v.CnW = 2,
+              mean_v.CwW = 2,  mean_v.FnN = 2,  mean_v.FwN = 2,
+
+              mean_v.FpN = 2, mean_v.FnW = 2,   mean_v.FwW = 2,
+              mean_v.FpW = 2,  mean_v.fa = 2,  mean_v.FpP = 2,
+
+              mean_v.HnN = 2, mean_v.HwN = 2,   mean_v.HpN = 2,
+              mean_v.HnW = 2, mean_v.HwW = 2,   mean_v.HpW = 2,
+              mean_v.HpP = 2)
+
+p.prior <- BuildPrior(
+  dists = rep("tnorm", 29),
+  p1 = prior.p.mean,
+  p2 = prior.p.scale,
+  lower = c(rep(0, 9), .1, rep(NA, 19)),
+  upper = c(rep(NA,9),  1, rep(NA, 19)))
+
+print(p.prior)
+```
+
+```{r simulate_subject}
+set.seed(1)
+dat0 <- simulate(model0, nsim = 1e2, ps = sim.p.vector)
+dmi0 <- BuildDMI(dat0, model0)
+```
+
+
+```{r model_fitting_procedure, eval=FALSE}
+#
+#
+# #note ncore argument is useless for single subject fits at the moment
+# #just uses 1 core no matter what you input.
+# # But will be great when need to dispatch one subject
+# #per core
+fit0 <- StartNewsamples(dmi0, prior=p.prior,nmc=180, ncore=1, thin=5)
+save(fit0, model0, dat0, dmi0, sim.p.vector, p.prior, file = "fit0.RData")
+fit  <- run(fit0, thin=5, ncore=1, block=FALSE)
+save(fit, fit0, model0, dat0, dmi0, sim.p.vector, p.prior, file = "fit1.RData")
+```

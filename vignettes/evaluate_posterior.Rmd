@@ -1,0 +1,174 @@
+---
+title: "Simple PM example, evaluating samples"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{evaluate_samples}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>"
+)
+
+
+```
+
+Data for this lesson can be downloaded from
+
+https://www.dropbox.com/sh/g21k7hmj69h30y2/AACXkTIJBZVYkrA3adiE6gh1a?dl=0
+
+Loads in data from sampling vignette. Uses
+get_post_cred method to get posterior medians 
+and credible intervals.
+
+```{r load}
+library(PMDC)
+library(ggplot2)
+
+fpath <- system.file("extdata", "fit1.RData", package="PMDC")
+load(fpath)
+
+fpath <- system.file("extdata", "fit_multi_1.RData", package="PMDC")
+load(fpath)
+
+fpath <- system.file("extdata", "fit_multi_hierarchical_1.RData", package="PMDC")
+load(fpath)
+
+theme_simple <- function (base_size = 12, base_family = "") {
+  theme_grey(base_size = base_size, base_family = base_family) %+replace%
+    theme(
+      panel.background = element_rect(fill="white"),
+      panel.grid.minor.y = element_blank(),
+      legend.key = element_rect(fill="white", colour= "white"),
+      strip.background = element_rect(fill="white"))
+}
+
+theme_set(theme_simple())
+
+
+```
+
+An example of how the credible intervals
+for parameter values might be plotted. In this case 
+the values of 'B' which correspond to response threhsolds.
+
+```{r plot}
+
+post_creds <- get_post_cred(fit)
+
+
+Bs <- post_creds[grep ("B", rownames(post_creds)),]
+## new thing make a data fram efor ggplot
+Bs$PM <- NA; Bs$R <- NA
+Bs$PM[grep ("C", rownames(Bs))] <- 
+  "C"
+Bs$PM[grep ("F", rownames(Bs))] <- 
+  "F"
+Bs$PM[grep ("H", rownames(Bs))] <- "H"
+
+Bs$R[grep ("N", rownames(Bs))] <- "N"
+Bs$R[grep ("W", rownames(Bs))] <- "W"
+Bs$R[grep ("P", rownames(Bs))] <- "P"
+
+
+ggplot(Bs, aes(factor(R),q50)) + 
+  geom_point(stat = "identity",aes(shape=PM), size=3) +
+  geom_errorbar(aes(ymax = q97.5, ymin = q2.5, width = 0.2)) +
+  xlab("Session") + ylab("Threshold") +
+  theme(
+    axis.line.x = element_line(),
+    axis.line.y = element_line()
+  )+geom_line(aes(group=PM, y=q50), linetype=2) 
+
+
+```
+
+
+same thing for many subjects
+```{r plot_many}
+
+
+post_creds <- get_post_cred(fit_multi)
+
+Bs <- post_creds[grep ("B", rownames(post_creds)),]
+## new thing make a data fram efor ggplot
+Bs$PM <- NA; Bs$R <- NA
+Bs$PM[grep ("C", rownames(Bs))] <- 
+  "C"
+Bs$PM[grep ("F", rownames(Bs))] <- 
+  "F"
+Bs$PM[grep ("H", rownames(Bs))] <- "H"
+
+Bs$R[grep ("N", rownames(Bs))] <- "N"
+Bs$R[grep ("W", rownames(Bs))] <- "W"
+Bs$R[grep ("P", rownames(Bs))] <- "P"
+
+
+ggplot(Bs, aes(factor(R),q50)) + 
+  geom_point(stat = "identity",aes(shape=PM), size=3) +
+  geom_errorbar(aes(ymax = q97.5, ymin = q2.5, width = 0.2)) +
+  xlab("Session") + ylab("Threshold") +
+  theme(
+    axis.line.x = element_line(),
+    axis.line.y = element_line()
+  )+geom_line(aes(group=PM, y=q50), linetype=2) 
+
+
+```
+
+
+same thing with hierarchical
+```{r plot_hierarchical}
+
+
+
+post_creds <- get_post_cred(fit_multi_hierarchical)
+
+Bs <- post_creds[grep ("B", rownames(post_creds)),]
+## new thing make a data fram efor ggplot
+Bs$PM <- NA; Bs$R <- NA
+Bs$PM[grep ("C", rownames(Bs))] <- 
+  "C"
+Bs$PM[grep ("F", rownames(Bs))] <- 
+  "F"
+Bs$PM[grep ("H", rownames(Bs))] <- "H"
+
+Bs$R[grep ("N", rownames(Bs))] <- "N"
+Bs$R[grep ("W", rownames(Bs))] <- "W"
+Bs$R[grep ("P", rownames(Bs))] <- "P"
+
+
+ggplot(Bs, aes(factor(R),q50)) + 
+  geom_point(stat = "identity",aes(shape=PM), size=3) +
+  geom_errorbar(aes(ymax = q97.5, ymin = q2.5, width = 0.2)) +
+  xlab("Session") + ylab("Threshold") +
+  theme(
+    axis.line.x = element_line(),
+    axis.line.y = element_line()
+  )+geom_line(aes(group=PM, y=q50), linetype=2) 
+
+
+```
+
+
+```{r post_ps}
+
+PMDC::summarise_effect(fit, fun=function(x) x["B.H.W"] - x["B.C.W"])
+
+```
+
+```{r post_ps_multi}
+
+PMDC::summarise_effect(fit_multi, fun=function(x) x["B.H.W"] - x["B.C.W"])
+
+```
+
+```{r post_ps_h}
+
+PMDC::summarise_effect(fit_multi_hierarchical, fun=function(x) x["B.H.W"])
+
+```
+TODO: Inference functions for hyper priors

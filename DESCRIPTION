@@ -1,0 +1,16 @@
+Package: PMDC
+Type: Package
+Title: Fits evidence accumulation models of prospective memory.
+Version: 1.0
+Date: 2019-12-02
+Author: Luke Strickland[aut, cre], Michael David Wilson[aut], Yi-Shin Lin [aut]
+Remotes: yxlin/ggdmc, tidyverse/tidyr
+Depends: ggdmc, ggplot2, dplyr, tidyr
+Maintainer: Luke Strickland <lukejgstrickland@gmail.com>
+Description: Fits evidence accumulation models of prospective memory. 
+License: GPL-2
+RoxygenNote: 7.0.1
+Suggests: 
+    knitr,
+    rmarkdown
+VignetteBuilder: knitr
